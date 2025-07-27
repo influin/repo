@@ -509,7 +509,55 @@ exports.updateUserRoles = async (req, res) => {
   }
 };
 
-// @desc    Update user type and roles after OTP verification
+// @desc    Set user type after OTP verification
+// @route   POST /api/users/set-user-type
+// @access  Public
+exports.setUserType = async (req, res) => {
+  try {
+    const { phoneNumber, userType } = req.body;
+    
+    if (!phoneNumber || !userType) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Phone number and user type are required' 
+      });
+    }
+    
+    // Validate user type
+    if (!['Individual', 'Organisation'].includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type. Must be either "Individual" or "Organisation"'
+      });
+    }
+    
+    // Generate a temporary token that will be used for the next step
+    const tempToken = jwt.sign(
+      { 
+        phoneNumber, 
+        userType,
+        step: 'user-type',
+        isRegistrationToken: true 
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '1h' }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'User type set successfully',
+      tempToken,
+      data: {
+        phoneNumber,
+        userType
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Set user type and roles after OTP verification
 // @route   POST /api/users/set-user-type
 // @access  Public
 exports.setUserTypeAndRoles = async (req, res) => {
@@ -549,6 +597,216 @@ exports.setUserTypeAndRoles = async (req, res) => {
         mappedRoles: systemRoles
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Set user roles after setting user type
+// @route   POST /api/users/set-user-roles
+// @access  Public (with temporary token)
+exports.setUserRoles = async (req, res) => {
+  try {
+    const { tempToken, userRoles } = req.body;
+    
+    if (!tempToken || !userRoles || !Array.isArray(userRoles) || userRoles.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Temporary token and at least one user role are required' 
+      });
+    }
+    
+    // Verify and decode the temporary token
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+      
+      // Check if this is a registration token and the correct step
+      if (!decoded.isRegistrationToken || decoded.step !== 'user-type') {
+        return res.status(400).json({ success: false, message: 'Invalid registration token or sequence' });
+      }
+    } catch (error) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    }
+    
+    const { phoneNumber, userType } = decoded;
+    
+    // Validate user roles
+    const validRoles = [
+      'Store Owner', 
+      'Service Business Owner', 
+      'Course Provider', 
+      'Influencer or Content Creator', 
+      'Student or Working Professional', 
+      'Delivery Partner'
+    ];
+    
+    const invalidRoles = userRoles.filter(role => !validRoles.includes(role));
+    if (invalidRoles.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid user role(s): ${invalidRoles.join(', ')}`
+      });
+    }
+    
+    // Map userRoles to roles array
+    const rolesMap = {
+      'Store Owner': 'Seller',
+      'Service Business Owner': 'Service Provider',
+      'Course Provider': 'Tutor',
+      'Influencer or Content Creator': 'Influencer',
+      'Student or Working Professional': 'user',
+      'Delivery Partner': 'user'
+    };
+    
+    // Convert userRoles to system roles, removing duplicates
+    const systemRoles = [...new Set(userRoles.map(role => rolesMap[role] || 'user'))];
+    
+    // Generate a new temporary token that includes the user roles
+    const newTempToken = jwt.sign(
+      { 
+        phoneNumber, 
+        userType, 
+        userRoles,
+        systemRoles,
+        step: 'user-roles',
+        isRegistrationToken: true 
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '1h' }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'User roles set successfully',
+      tempToken: newTempToken,
+      data: {
+        phoneNumber,
+        userType,
+        userRoles,
+        mappedRoles: systemRoles
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Complete user registration after setting user type and roles
+// @route   POST /api/users/complete-registration
+// @access  Public (with temporary token)
+exports.completeRegistration = async (req, res) => {
+  try {
+    const { tempToken, name, email, password, gender, dob } = req.body;
+    
+    if (!tempToken) {
+      return res.status(400).json({ success: false, message: 'Temporary token is required' });
+    }
+    
+    // Verify and decode the temporary token
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+      
+      // Check if this is a registration token and the correct step
+      if (!decoded.isRegistrationToken || decoded.step !== 'user-roles') {
+        return res.status(400).json({ success: false, message: 'Invalid registration token or sequence' });
+      }
+    } catch (error) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    }
+    
+    const { phoneNumber, userType, userRoles, systemRoles } = decoded;
+    
+    // Check if required fields are provided
+    if (!name || !gender || !dob) {
+      return res.status(400).json({ success: false, message: 'Name, gender, and date of birth are required' });
+    }
+    
+    // Check if user with this phone number already exists
+    const phoneExists = await User.findOne({ phoneNumber });
+    if (phoneExists) {
+      return res.status(400).json({ success: false, message: 'User with this phone number already exists' });
+    }
+    
+    // Check if email is provided and if it already exists
+    if (email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({ success: false, message: 'User with this email already exists' });
+      }
+    }
+    
+    // Find the Free Plan subscription
+    const freePlan = await SubscriptionPlan.findOne({ name: 'Free Plan', isActive: true });
+    if (!freePlan) {
+      return res.status(500).json({ success: false, message: 'Free Plan not found. Please contact administrator.' });
+    }
+    
+    // Calculate subscription end date based on plan duration
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + freePlan.durationInMonths);
+    
+    // Create user data object
+    const userData = {
+      name,
+      phoneNumber,
+      gender,
+      dob,
+      userType,
+      userRoles,
+      roles: systemRoles,
+      subscription: {
+        plan: freePlan._id,
+        startDate,
+        endDate,
+        isActive: true,
+        paymentStatus: 'Completed',
+        autoRenew: false
+      }
+    };
+    
+    // Add optional fields if provided
+    if (email) userData.email = email;
+    
+    // Add password if provided
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      userData.passwordHash = await bcrypt.hash(password, salt);
+    }
+    
+    // Handle profile image upload if provided in request
+    if (req.file && req.file.path) {
+      userData.profileURL = req.file.path;
+    }
+    
+    // Create user
+    const user = await User.create(userData);
+    
+    if (user) {
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          gender: user.gender,
+          dob: user.dob,
+          userType: user.userType,
+          userRoles: user.userRoles,
+          roles: user.roles,
+          status: user.status,
+          subscription: {
+            plan: freePlan.name,
+            endDate: user.subscription.endDate
+          }
+        },
+        token: generateToken(user._id)
+      });
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

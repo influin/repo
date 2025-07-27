@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-// Import the new controller function
+// Import the new controller functions
 const { 
   registerUser, 
   loginUser, 
@@ -12,7 +12,10 @@ const {
   deleteUserAccount,
   setUsername,
   updateUserRoles,
-  setUserTypeAndRoles  // Add this line
+  setUserType,           // New function
+  setUserRoles,          // New function
+  completeRegistration,  // New function
+  setUserTypeAndRoles    // Keep for backward compatibility
 } = require('../controllers/userController');
 const { protectUser } = require('../middleware/userAuth');
 const { uploadImage } = require('../../config/cloudinary');
@@ -24,8 +27,14 @@ const uploadProfileImage = uploadImage.single('profileImage');
 router.post('/send-otp', sendOTPController);
 router.post('/verify-otp', verifyOTPController);
 
-// New route for setting user type and roles
-router.post('/set-user-type', setUserTypeAndRoles);
+// Multi-step registration routes
+router.post('/set-user-type', setUserType);                // Step 2: Set user type
+router.post('/set-user-roles', setUserRoles);              // Step 3: Set user roles
+router.post('/complete-registration', uploadProfileImage, completeRegistration); // Step 4: Complete registration
+
+// Keep existing routes for backward compatibility
+router.post('/set-user-type-and-roles', setUserTypeAndRoles); // Combined step 2 & 3
+router.post('/register', uploadProfileImage, registerUser);    // Single-step registration
 
 // Username availability check
 router.get('/check-username/:username', checkUsername);
