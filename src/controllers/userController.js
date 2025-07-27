@@ -788,7 +788,7 @@ exports.verifyAadhaarOTP = async (req, res) => {
     });
   }
 };
-const verifyPAN = async (req, res) => {
+exports.verifyPAN = async (req, res) => {
   try {
     const { pan, name_as_per_pan, date_of_birth } = req.body;
     const userId = req.user.id;
