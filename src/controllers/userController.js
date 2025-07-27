@@ -2,6 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { generateOTP, sendOTP, saveOTP, verifyOTP } = require('../utils/otpUtils');
+const axios = require('axios');
 const { cloudinary } = require('../../config/cloudinary');
 const SubscriptionPlan = require('../models/SubscriptionPlan'); // Add this line
 
@@ -696,7 +697,7 @@ exports.setUserRoles = async (req, res) => {
 // @access  Private
 exports.sendAadhaarOTP = async (req, res) => {
   try {
-    const { aadhaar_number } = req.body;
+    const { aadhaar_number } = req.body.aadhaar_number;
 
     if (!aadhaar_number) {
       return res.status(400).json({ 
