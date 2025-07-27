@@ -822,14 +822,17 @@ exports.verifyPAN = async (req, res) => {
       }
     );
 
+    // Check verification status from response
+    const isVerified = response.data.data?.status === 'VALID' || false;
+
     // Update user's PAN verification status
     const user = await User.findById(userId);
     user.kyc.pan = {
       number: pan,
       name: name_as_per_pan,
       dateOfBirth: date_of_birth,
-      isVerified: response.data.verified || false,
-      verificationStatus: response.data.verified ? 'verified' : 'failed',
+      isVerified: isVerified,
+      verificationStatus: isVerified ? 'verified' : 'failed',
       verifiedAt: new Date()
     };
     await user.save();
