@@ -35,7 +35,7 @@ router.post('/verify-aadhaar/verify-otp', protectUser, verifyAadhaarOTP);
 // ... existing imports ...
 
 // PAN Verification
-router.post('/verify-pan', auth, verifyPAN);
+router.post('/verify-pan', protectUser, verifyPAN);
 // Multi-step registration routes
 router.post('/set-user-type', setUserType);                // Step 2: Set user type
 router.post('/set-user-roles', setUserRoles);              // Step 3: Set user roles
