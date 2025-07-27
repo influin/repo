@@ -691,7 +691,102 @@ exports.setUserRoles = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+// @desc    Send OTP for Aadhaar verification
+// @route   POST /api/users/verify-aadhaar/send-otp
+// @access  Private
+exports.sendAadhaarOTP = async (req, res) => {
+  try {
+    const { aadhaar_number } = req.body;
 
+    if (!aadhaar_number) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Aadhaar number is required' 
+      });
+    }
+
+    const response = await axios.post(
+      'https://api.sandbox.co.in/kyc/aadhaar/okyc/otp',
+      {
+        "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
+        "aadhaar_number": aadhaar_number,
+        "consent": "y",
+        "reason": "KYC"
+      },
+      {
+        headers: {
+          'Authorization': process.env.SANDBOX_AUTH_TOKEN,
+          'x-api-key': process.env.SANDBOX_API_KEY,
+          'x-api-version': '1.0.0',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully',
+      data: response.data
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: error.response?.data?.message || error.message 
+    });
+  }
+};
+
+// @desc    Verify Aadhaar OTP
+// @route   POST /api/users/verify-aadhaar/verify-otp
+// @access  Private
+exports.verifyAadhaarOTP = async (req, res) => {
+  try {
+    const { reference_id, otp } = req.body;
+
+    if (!reference_id || !otp) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Reference ID and OTP are required' 
+      });
+    }
+
+    // Call Sandbox API to verify OTP
+    const response = await axios.post(
+      'https://api.sandbox.co.in/kyc/aadhaar/okyc/otp/verify',
+      {
+        "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
+        "reference_id": reference_id,
+        "otp": otp
+      },
+      {
+        headers: {
+          'Authorization': process.env.SANDBOX_AUTH_TOKEN,
+          'x-api-key': process.env.SANDBOX_API_KEY,
+          'x-api-version': '2.0',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Update user's Aadhaar verification status
+    await User.findByIdAndUpdate(req.user._id, {
+      'kyc.aadhaar.isVerified': true,
+      'kyc.aadhaar.verificationStatus': 'verified',
+      'kyc.aadhaar.verifiedAt': new Date()
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Aadhaar verified successfully',
+      data: response.data
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: error.response?.data?.message || error.message 
+    });
+  }
+};
 // @desc    Complete user registration after setting user type and roles
 // @route   POST /api/users/complete-registration
 // @access  Public (with temporary token)

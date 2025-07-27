@@ -15,7 +15,9 @@ const {
   setUserType,           // New function
   setUserRoles,          // New function
   completeRegistration,  // New function
-  setUserTypeAndRoles    // Keep for backward compatibility
+  setUserTypeAndRoles,
+  sendAadhaarOTP,
+  verifyAadhaarOTP    // Keep for backward compatibility
 } = require('../controllers/userController');
 const { protectUser } = require('../middleware/userAuth');
 const { uploadImage } = require('../../config/cloudinary');
@@ -26,7 +28,9 @@ const uploadProfileImage = uploadImage.single('profileImage');
 // OTP routes
 router.post('/send-otp', sendOTPController);
 router.post('/verify-otp', verifyOTPController);
-
+// Aadhaar verification routes
+router.post('/verify-aadhaar/send-otp', protectUser, sendAadhaarOTP);
+router.post('/verify-aadhaar/verify-otp', protectUser, verifyAadhaarOTP);
 // Multi-step registration routes
 router.post('/set-user-type', setUserType);                // Step 2: Set user type
 router.post('/set-user-roles', setUserRoles);              // Step 3: Set user roles

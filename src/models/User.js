@@ -61,7 +61,18 @@ const UserSchema = new Schema({
     enum: ['Store Owner', 'Service Business Owner', 'Course Provider', 'Influencer or Content Creator', 'Student or Working Professional', 'Delivery Partner'],
     required: true 
   },
-  
+  kyc: {
+    aadhaar: {
+      number: { type: String, unique: true, sparse: true },
+      isVerified: { type: Boolean, default: false },
+      verificationStatus: { 
+        type: String, 
+        enum: ['pending', 'verified', 'failed'], 
+        default: 'pending' 
+      },
+      verifiedAt: Date
+    }
+  },
   // 🔹 Roles (existing field - will be mapped from userRoles)
   roles: {
     type: [String],
