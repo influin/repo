@@ -104,7 +104,7 @@ exports.verifyOTPController = async (req, res) => {
 // @access  Public
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, phoneNumber, password, gender, dob } = req.body;
+    const { name, email, phoneNumber, password, gender, dob, userType, userRoles } = req.body;
     
     // Check if phone number is provided
     if (!phoneNumber) {
@@ -112,8 +112,8 @@ exports.registerUser = async (req, res) => {
     }
     
     // Check if required fields are provided
-    if (!gender || !dob) {
-      return res.status(400).json({ success: false, message: 'Gender and date of birth are required' });
+    if (!gender || !dob || !userType || !userRoles || !Array.isArray(userRoles) || userRoles.length === 0) {
+      return res.status(400).json({ success: false, message: 'Gender, date of birth, user type, and at least one user role are required' });
     }
     
     // Check if user with this phone number already exists
@@ -141,12 +141,28 @@ exports.registerUser = async (req, res) => {
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + freePlan.durationInMonths);
     
+    // Map userRoles to roles array
+    const rolesMap = {
+      'Store Owner': 'Seller',
+      'Service Business Owner': 'Service Provider',
+      'Course Provider': 'Tutor',
+      'Influencer or Content Creator': 'Influencer',
+      'Student or Working Professional': 'user',
+      'Delivery Partner': 'user'
+    };
+    
+    // Convert userRoles to system roles, removing duplicates
+    const systemRoles = [...new Set(userRoles.map(role => rolesMap[role] || 'user'))];
+    
     // Create user data object
     const userData = {
       name: name || 'User', // Default name if not provided
       phoneNumber,
       gender,
       dob,
+      userType,
+      userRoles,
+      roles: systemRoles, // Map userRoles to system roles
       subscription: {
         plan: freePlan._id,
         startDate,
@@ -184,6 +200,8 @@ exports.registerUser = async (req, res) => {
           phoneNumber: user.phoneNumber,
           gender: user.gender,
           dob: user.dob,
+          userType: user.userType,
+          userRoles: user.userRoles,
           roles: user.roles,
           status: user.status,
           subscription: {
@@ -452,19 +470,85 @@ exports.updateUserRoles = async (req, res) => {
     const user = await User.findById(req.user._id);
     
     if (user) {
-      // Update roles
-      user.roles = req.body.roles || user.roles;
+      // Map userRoles to roles array
+      const rolesMap = {
+        'Store Owner': 'Seller',
+        'Service Business Owner': 'Service Provider',
+        'Course Provider': 'Tutor',
+        'Influencer or Content Creator': 'Influencer',
+        'Student or Working Professional': 'user',
+        'Delivery Partner': 'user'
+      };
+      
+      // Update userRoles if provided
+      if (req.body.userRoles && Array.isArray(req.body.userRoles)) {
+        user.userRoles = req.body.userRoles;
+        
+        // Convert userRoles to system roles, removing duplicates
+        const systemRoles = [...new Set(req.body.userRoles.map(role => rolesMap[role] || 'user'))];
+        user.roles = systemRoles;
+      } 
+      // For backward compatibility, still support direct roles update
+      else if (req.body.roles) {
+        user.roles = req.body.roles;
+      }
       
       const updatedUser = await user.save();
       
       res.status(200).json({
         success: true,
         message: 'User roles updated successfully',
+        userRoles: updatedUser.userRoles,
         roles: updatedUser.roles
       });
     } else {
       res.status(404).json({ success: false, message: 'User not found' });
     }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update user type and roles after OTP verification
+// @route   POST /api/users/set-user-type
+// @access  Public
+exports.setUserTypeAndRoles = async (req, res) => {
+  try {
+    const { phoneNumber, userType, userRoles } = req.body;
+    
+    if (!phoneNumber || !userType || !userRoles || !Array.isArray(userRoles) || userRoles.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Phone number, user type, and at least one user role are required' 
+      });
+    }
+    
+    // Map userRoles to roles array
+    const rolesMap = {
+      'Store Owner': 'Seller',
+      'Service Business Owner': 'Service Provider',
+      'Course Provider': 'Tutor',
+      'Influencer or Content Creator': 'Influencer',
+      'Student or Working Professional': 'user',
+      'Delivery Partner': 'user'
+    };
+    
+    // Convert userRoles to system roles, removing duplicates
+    const systemRoles = [...new Set(userRoles.map(role => rolesMap[role] || 'user'))];
+    
+    // Store the user type and roles in session or temporary storage
+    // This will be used during the final registration step
+    
+    res.status(200).json({
+      success: true,
+      message: 'User type and roles set successfully',
+      data: {
+        phoneNumber,
+        userType,
+        userRoles,
+        mappedRoles: systemRoles
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

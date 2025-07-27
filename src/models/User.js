@@ -47,11 +47,25 @@ const UserSchema = new Schema({
   dob: { type: String },
   phoneNumber: { type: String, required: true, unique: true },
   profileURL: { type: String },
-
-  // 🔹 Roles
+  
+  // 🔹 User Type (from first screen)
+  userType: { 
+    type: String, 
+    enum: ['Individual', 'Organisation'],
+    required: true 
+  },
+  
+  // 🔹 User Roles (from second screen - multiple selections)
+  userRoles: { 
+    type: [String], 
+    enum: ['Store Owner', 'Service Business Owner', 'Course Provider', 'Influencer or Content Creator', 'Student or Working Professional', 'Delivery Partner'],
+    required: true 
+  },
+  
+  // 🔹 Roles (existing field - will be mapped from userRoles)
   roles: {
     type: [String],
-    enum: ['Influencer', 'Service Provider', 'Seller', 'Tutor','user'],
+    enum: ['Influencer', 'Service Provider', 'Seller', 'Tutor', 'user'],
     default: ['user'],
   },
   wallet: {

@@ -11,7 +11,8 @@ const {
   checkUsername,
   deleteUserAccount,
   setUsername,
-  updateUserRoles  // Add this line
+  updateUserRoles,
+  setUserTypeAndRoles  // Add this line
 } = require('../controllers/userController');
 const { protectUser } = require('../middleware/userAuth');
 const { uploadImage } = require('../../config/cloudinary');
@@ -22,6 +23,9 @@ const uploadProfileImage = uploadImage.single('profileImage');
 // OTP routes
 router.post('/send-otp', sendOTPController);
 router.post('/verify-otp', verifyOTPController);
+
+// New route for setting user type and roles
+router.post('/set-user-type', setUserTypeAndRoles);
 
 // Username availability check
 router.get('/check-username/:username', checkUsername);
