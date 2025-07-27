@@ -697,7 +697,7 @@ exports.setUserRoles = async (req, res) => {
 // @access  Private
 exports.sendAadhaarOTP = async (req, res) => {
   try {
-    const { aadhaar_number } = req.body.aadhaar_number;
+    const { aadhaar_number } = req.body;
 
     if (!aadhaar_number) {
       return res.status(400).json({ 
