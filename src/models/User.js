@@ -71,6 +71,18 @@ const UserSchema = new Schema({
         default: 'pending' 
       },
       verifiedAt: Date
+    },
+    pan: {
+      number: { type: String, unique: true, sparse: true },
+      name: String,
+      dateOfBirth: String,
+      isVerified: { type: Boolean, default: false },
+      verificationStatus: { 
+        type: String, 
+        enum: ['pending', 'verified', 'failed'], 
+        default: 'pending' 
+      },
+      verifiedAt: Date
     }
   },
   // 🔹 Roles (existing field - will be mapped from userRoles)

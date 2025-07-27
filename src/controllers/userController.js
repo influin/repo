@@ -788,6 +788,73 @@ exports.verifyAadhaarOTP = async (req, res) => {
     });
   }
 };
+const verifyPAN = async (req, res) => {
+  try {
+    const { pan, name_as_per_pan, date_of_birth } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!pan || !name_as_per_pan || !date_of_birth) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide all required fields"
+      });
+    }
+
+    // Call Sandbox PAN verification API
+    const response = await axios.post(
+      'https://api.sandbox.co.in/kyc/pan/verify',
+      {
+        "@entity": "in.co.sandbox.kyc.pan_verification.request",
+        pan,
+        name_as_per_pan,
+        date_of_birth,
+        consent: "y",
+        reason: "KYC"
+      },
+      {
+        headers: {
+          'authorization': process.env.SANDBOX_AUTH_TOKEN,
+          'x-api-key': process.env.SANDBOX_API_KEY,
+          'x-accept-cache': 'true',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Update user's PAN verification status
+    const user = await User.findById(userId);
+    user.kyc.pan = {
+      number: pan,
+      name: name_as_per_pan,
+      dateOfBirth: date_of_birth,
+      isVerified: response.data.verified || false,
+      verificationStatus: response.data.verified ? 'verified' : 'failed',
+      verifiedAt: new Date()
+    };
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "PAN verification completed",
+      data: {
+        pan: {
+          isVerified: user.kyc.pan.isVerified,
+          verificationStatus: user.kyc.pan.verificationStatus,
+          verifiedAt: user.kyc.pan.verifiedAt
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('PAN verification error:', error);
+    return res.status(500).json({
+      success: false,
+      message: "PAN verification failed",
+      error: error.response?.data?.message || error.message
+    });
+  }
+};
 // @desc    Complete user registration after setting user type and roles
 // @route   POST /api/users/complete-registration
 // @access  Public (with temporary token)
