@@ -823,7 +823,9 @@ exports.verifyPAN = async (req, res) => {
     );
 
     // Check verification status from response
-    const isVerified = response.data.data?.status === 'VALID' || false;
+    const isVerified = response.data.data?.status?.toLowerCase() === 'valid' &&
+                      response.data.data?.name_as_per_pan_match === true &&
+                      response.data.data?.date_of_birth_match === true;
 
     // Update user's PAN verification status
     const user = await User.findById(userId);
