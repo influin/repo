@@ -306,3 +306,51 @@ exports.getParentCategories = async (req, res) => {
     });
   }
 };
+
+// @desc    Get categories by parent ID
+// @route   GET /api/categories/parent/:parentId
+// @access  Public
+exports.getCategoriesByParent = async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    
+    // Validate parent category exists if parentId is provided
+    if (parentId !== 'null' && parentId !== 'root') {
+      const parentCategory = await Category.findById(parentId);
+      if (!parentCategory) {
+        return res.status(404).json({
+          success: false,
+          message: 'Parent category not found'
+        });
+      }
+    }
+    
+    // Build query based on parentId
+    let query = { isActive: true };
+    
+    if (parentId === 'null' || parentId === 'root') {
+      // Get root level categories (parent is null)
+      query.parent = null;
+    } else {
+      // Get categories with specific parent ID
+      query.parent = parentId;
+    }
+    
+    const categories = await Category.find(query)
+      .populate('parent', 'name slug')
+      .select('name slug type icon image isActive createdAt parent')
+      .sort({ name: 1 });
+    
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      parentId: parentId === 'null' || parentId === 'root' ? null : parentId,
+      data: categories
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
