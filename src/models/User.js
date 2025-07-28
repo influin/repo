@@ -170,6 +170,16 @@ const UserSchema = new Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'RateCard'
     }],
+    // Add availability management
+    availability: [AvailabilitySchema], // Reuse existing schema from tutor
+    unavailableDates: [{
+      date: { type: Date, required: true },
+      reason: { type: String, default: 'Not available' }
+    }],
+    workingHours: {
+      timezone: { type: String, default: 'Asia/Kolkata' },
+      defaultSlots: [SlotSchema] // Default time slots for all days
+    },
     createdAt: Date,
   },
 
