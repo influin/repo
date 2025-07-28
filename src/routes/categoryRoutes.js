@@ -6,7 +6,8 @@ const {
   getCategory,
   updateCategory,
   deleteCategory,
-  getCategoryTree
+  getCategoryTree,
+  getParentCategories
 } = require('../controllers/categoryController');
 const { protect, authorize } = require('../middleware/auth');
 const { uploadCategoryImages, processUploadedFiles } = require('../middleware/upload');
@@ -14,6 +15,7 @@ const { uploadCategoryImages, processUploadedFiles } = require('../middleware/up
 // Public routes (no authentication required)
 router.get('/', getCategories);
 router.get('/tree', getCategoryTree);
+router.get('/parents', getParentCategories); // New route for parent categories only
 router.get('/:id', getCategory);
 
 // Protected routes (require admin access)

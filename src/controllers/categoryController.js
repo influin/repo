@@ -282,3 +282,27 @@ exports.getCategoryTree = async (req, res) => {
     });
   }
 };
+
+// @desc    Get parent categories only
+// @route   GET /api/categories/parents
+// @access  Public
+exports.getParentCategories = async (req, res) => {
+  try {
+    // Get categories where parent is null (root level categories)
+    const parentCategories = await Category.find({ 
+      parent: null,
+      isActive: true 
+    }).select('name slug type icon image isActive createdAt');
+    
+    res.status(200).json({
+      success: true,
+      count: parentCategories.length,
+      data: parentCategories
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
