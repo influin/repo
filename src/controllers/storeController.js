@@ -98,14 +98,40 @@ exports.getUserStores = async (req, res) => {
   }
 };
 
-// @desc    Get a specific store by ID
+// @desc    Get a specific store by ID with full population
 // @route   GET /api/users/stores/:storeId
 // @access  Private
 exports.getStoreById = async (req, res) => {
   try {
     const { storeId } = req.params;
     
-    const user = await User.findById(req.user._id);
+    // Find user and populate store data with all related information
+    const user = await User.findById(req.user._id)
+      .populate({
+        path: 'stores.categories',
+        select: 'name slug type icon image isActive'
+      })
+      .populate({
+        path: 'stores.items.itemId',
+        populate: [
+          {
+            path: 'category',
+            select: 'name slug type icon image'
+          },
+          {
+            path: 'subCategory', 
+            select: 'name slug type icon image'
+          },
+          {
+            path: 'userId',
+            select: 'name username profileURL'
+          }
+        ]
+      })
+      .populate({
+        path: 'stores.items.ownerId',
+        select: 'name username profileURL'
+      });
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -117,11 +143,164 @@ exports.getStoreById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Store not found' });
     }
     
+    // Transform the store data to include all populated information
+    const storeData = {
+      _id: store._id,
+      storeName: store.storeName,
+      storeType: store.storeType,
+      description: store.description,
+      bannerImage: store.bannerImage,
+      isActive: store.isActive,
+      rating: store.rating,
+      totalSales: store.totalSales,
+      createdAt: store.createdAt,
+      
+      // Populated categories with full details
+      categories: store.categories.map(category => ({
+        _id: category._id,
+        name: category.name,
+        slug: category.slug,
+        type: category.type,
+        icon: category.icon,
+        image: category.image,
+        isActive: category.isActive
+      })),
+      
+      // Populated items with full details
+      items: store.items.map(item => {
+        const itemData = {
+          _id: item._id,
+          itemType: item.itemType,
+          affiliateCommission: item.affiliateCommission,
+          myearning: item.myearning,
+          
+          // Owner information
+          owner: item.ownerId ? {
+            _id: item.ownerId._id,
+            name: item.ownerId.name,
+            username: item.ownerId.username,
+            profileURL: item.ownerId.profileURL
+          } : null,
+          
+          // Item details (product or service)
+          itemDetails: null
+        };
+        
+        // Add item-specific details based on type
+        if (item.itemId) {
+          if (item.itemType === 'product') {
+            itemData.itemDetails = {
+              _id: item.itemId._id,
+              title: item.itemId.title,
+              description: item.itemId.description,
+              price: item.itemId.price,
+              currency: item.itemId.currency,
+              images: item.itemId.images || [],
+              thumbnail: item.itemId.thumbnail,
+              inventory: item.itemId.inventory,
+              sku: item.itemId.sku,
+              tags: item.itemId.tags || [],
+              isActive: item.itemId.isActive,
+              isFeatured: item.itemId.isFeatured,
+              rating: item.itemId.rating,
+              totalSales: item.itemId.totalSales,
+              shipping: item.itemId.shipping,
+              
+              // Category details
+              category: item.itemId.category ? {
+                _id: item.itemId.category._id,
+                name: item.itemId.category.name,
+                slug: item.itemId.category.slug,
+                type: item.itemId.category.type,
+                icon: item.itemId.category.icon,
+                image: item.itemId.category.image
+              } : null,
+              
+              // Subcategory details
+              subCategory: item.itemId.subCategory ? {
+                _id: item.itemId.subCategory._id,
+                name: item.itemId.subCategory.name,
+                slug: item.itemId.subCategory.slug,
+                type: item.itemId.subCategory.type,
+                icon: item.itemId.subCategory.icon,
+                image: item.itemId.subCategory.image
+              } : null,
+              
+              // Item owner details
+              itemOwner: item.itemId.userId ? {
+                _id: item.itemId.userId._id,
+                name: item.itemId.userId.name,
+                username: item.itemId.userId.username,
+                profileURL: item.itemId.userId.profileURL
+              } : null,
+              
+              createdAt: item.itemId.createdAt,
+              updatedAt: item.itemId.updatedAt
+            };
+          } else if (item.itemType === 'service') {
+            itemData.itemDetails = {
+              _id: item.itemId._id,
+              title: item.itemId.title,
+              description: item.itemId.description,
+              basePrice: item.itemId.basePrice,
+              currency: item.itemId.currency,
+              images: item.itemId.images || [],
+              thumbnail: item.itemId.thumbnail,
+              tags: item.itemId.tags || [],
+              duration: item.itemId.duration,
+              locationType: item.itemId.locationType,
+              serviceArea: item.itemId.serviceArea,
+              availability: item.itemId.availability || [],
+              isBookable: item.itemId.isBookable,
+              isFeatured: item.itemId.isFeatured,
+              isActive: item.itemId.isActive,
+              rating: item.itemId.rating,
+              totalBookings: item.itemId.totalBookings,
+              
+              // Category details
+              category: item.itemId.category ? {
+                _id: item.itemId.category._id,
+                name: item.itemId.category.name,
+                slug: item.itemId.category.slug,
+                type: item.itemId.category.type,
+                icon: item.itemId.category.icon,
+                image: item.itemId.category.image
+              } : null,
+              
+              // Subcategory details
+              subCategory: item.itemId.subCategory ? {
+                _id: item.itemId.subCategory._id,
+                name: item.itemId.subCategory.name,
+                slug: item.itemId.subCategory.slug,
+                type: item.itemId.subCategory.type,
+                icon: item.itemId.subCategory.icon,
+                image: item.itemId.subCategory.image
+              } : null,
+              
+              // Item owner details
+              itemOwner: item.itemId.userId ? {
+                _id: item.itemId.userId._id,
+                name: item.itemId.userId.name,
+                username: item.itemId.userId.username,
+                profileURL: item.itemId.userId.profileURL
+              } : null,
+              
+              createdAt: item.itemId.createdAt,
+              updatedAt: item.itemId.updatedAt
+            };
+          }
+        }
+        
+        return itemData;
+      })
+    };
+    
     res.status(200).json({
       success: true,
-      store
+      store: storeData
     });
   } catch (error) {
+    console.error('Error fetching store details:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
